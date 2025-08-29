@@ -29,10 +29,23 @@ pipeline {
         }
 
         stage('Run Cypress Tests') {
-           steps {
-                // Verificar conectividad antes de ejecutar las pruebas
-                sh 'docker-compose exec cypress curl -f http://app:5050/login || echo "Verificando conectividad..."'
-                sh 'docker-compose run --rm cypress'
+            steps {
+                script {
+                    // Ejecutar Cypress y obtener el ID del contenedor
+                    def cypressContainer = sh(script: 'docker-compose run -d --rm cypress', returnStdout: true).trim()
+                    
+                    // Esperar a que termine la ejecución
+                    sh "docker wait ${cypressContainer}"
+                    
+                    // Copiar el reporte del contenedor antes de que se elimine
+                    sh """
+                        mkdir -p mochawesome-report
+                        docker cp ${cypressContainer}:/e2e/mochawesome-report/ ./mochawesome-report/ || echo "No se pudo copiar el reporte"
+                    """
+                    
+                    // Limpiar el contenedor (se eliminará por --rm pero forzamos por si acaso)
+                    sh "docker rm -f ${cypressContainer} >/dev/null 2>&1 || true"
+                }
             }
         }
 
