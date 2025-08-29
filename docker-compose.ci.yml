@@ -8,23 +8,6 @@ services:
     container_name: sample_app4
     ports:
       - "5050:5050"
-    volumes:
-      - .:/app
-    networks:
-      - jenkinsnet
-
-  jenkins:
-    build:
-      context: .
-      dockerfile: Dockerfile.jenkins
-    container_name: jenkins_server4
-    ports:
-      - "8080:8080"
-    volumes:
-      - jenkins_data:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock
-      - .:/home
-    user: root
     networks:
       - jenkinsnet
 
@@ -46,13 +29,8 @@ services:
         "--reporter-options",
         "reportDir=mochawesome-report,overwrite=false,html=true,json=false",
       ]
-    volumes:
-      - .:/e2e
     networks:
       - jenkinsnet
-
-volumes:
-  jenkins_data:
 
 networks:
   jenkinsnet:
