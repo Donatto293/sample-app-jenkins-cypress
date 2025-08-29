@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: sample_app
+    container_name: sample_app4
     ports:
       - "5050:5050"
     volumes:
@@ -15,7 +15,7 @@ services:
 
   jenkins:
     image: jenkins/jenkins:lts-jdk11
-    container_name: jenkins_server
+    container_name: jenkins_server4
     ports:
       - "8080:8080"
     volumes:
