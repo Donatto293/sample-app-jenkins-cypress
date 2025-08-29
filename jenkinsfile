@@ -14,11 +14,18 @@ pipeline {
             }
         }
 
-        stage('Start Application') {
+       stage('Start Application') {
             steps {
                 sh 'docker-compose up -d app'
-                // Esperar 15 segundos para que la app esté lista
-                sleep time: 15, unit: 'SECONDS'
+                // Esperar más tiempo y verificar que la app esté respondiendo
+                sh '''
+                    timeout 60s bash -c '
+                    while ! curl -f http://localhost:5050/login; do
+                        sleep 5
+                        echo "Esperando a que la aplicación esté lista..."
+                    done
+                    '
+                '''
             }
         }
 
