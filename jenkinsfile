@@ -1,0 +1,50 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Clean Previous') {
+            steps {
+                script {
+                    sh 'docker-compose down || true'
+                }
+            }
+        }
+
+        stage('Build App') {
+            steps {
+                script {
+                    sh 'docker-compose build app'
+                }
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                script {
+                    sh 'docker-compose run --rm cypress'
+                }
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                script {
+                    sh 'docker-compose down'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            publishHTML target: [
+                allowMissing: true,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'mochawesome-report',
+                reportFiles: 'mochawesome.html',
+                reportName: 'Cypress Test Report'
+            ]
+        }
+    }
+}
