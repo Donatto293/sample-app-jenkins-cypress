@@ -17,10 +17,12 @@ pipeline {
        stage('Start Application') {
             steps {
                 sh 'docker-compose up -d app'
-                // Esperar más tiempo y verificar que la app esté respondiendo
+                // Obtener la IP del contenedor de la aplicación
                 sh '''
+                    APP_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' sample_app4)
+                    echo "IP de la aplicación: $APP_IP"
                     timeout 120s bash -c '
-                    while ! curl -f http://app:5050/login; do
+                    while ! curl -f http://$APP_IP:5050/login; do
                         sleep 5
                         echo "Esperando a que la aplicación esté lista..."
                     done

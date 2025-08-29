@@ -8,8 +8,6 @@ services:
     container_name: sample_app4
     ports:
       - "5050:5050"
-    volumes:
-      - .:/app
     networks:
       - jenkinsnet
 
@@ -26,7 +24,7 @@ services:
       - .:/home
     user: root
     networks:
-      - jenkinsnet
+      - jenkinsnet  # Agregar esta línea
 
   cypress:
     build:
@@ -46,8 +44,6 @@ services:
         "--reporter-options",
         "reportDir=mochawesome-report,overwrite=false,html=true,json=false",
       ]
-    volumes:
-      - ./mochawesome-report:/e2e/mochawesome-report
     networks:
       - jenkinsnet
 
