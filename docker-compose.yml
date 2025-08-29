@@ -47,7 +47,7 @@ services:
         "reportDir=mochawesome-report,overwrite=false,html=true,json=false",
       ]
     volumes:
-      - .:/e2e
+      - ./mochawesome-report:/e2e/mochawesome-report
     networks:
       - jenkinsnet
 
