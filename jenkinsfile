@@ -29,7 +29,9 @@ pipeline {
         }
 
         stage('Run Cypress Tests') {
-            steps {
+           steps {
+                // Verificar conectividad antes de ejecutar las pruebas
+                sh 'docker-compose exec cypress curl -f http://app:5050/login || echo "Verificando conectividad..."'
                 sh 'docker-compose run --rm cypress'
             }
         }
