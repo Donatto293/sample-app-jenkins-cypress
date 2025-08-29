@@ -22,4 +22,7 @@ app.get('/dashboard', (req, res) => {
   res.send('<h1>Bienvenido al dashboard</h1>');
 });
 
-app.listen(PORT, () => console.log(`Servidor en http://localhost:${PORT}`));
+// Asegúrate de escuchar en 0.0.0.0
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`App listening on port ${PORT}`);
+});

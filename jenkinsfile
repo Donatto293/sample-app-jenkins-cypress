@@ -1,12 +1,12 @@
 pipeline {
     agent any
 
-    stages {
-        stage('Clean Previous Containers') {
-            steps {
-                sh 'docker-compose down || true'
+        stages {
+            stage('Clean Previous Containers') {
+                steps {
+                    sh 'docker-compose down || true'
+                }
             }
-        }
 
         stage('Build Application') {
             steps {
@@ -19,8 +19,8 @@ pipeline {
                 sh 'docker-compose up -d app'
                 // Esperar más tiempo y verificar que la app esté respondiendo
                 sh '''
-                    timeout 60s bash -c '
-                    while ! curl -f http://localhost:5050/login; do
+                    timeout 120s bash -c '
+                    while ! curl -f http://app:5050/login; do
                         sleep 5
                         echo "Esperando a que la aplicación esté lista..."
                     done
