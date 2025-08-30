@@ -1,22 +1,22 @@
 pipeline {
     agent any
 
-        stages {
-            stage('Clean Previous Containers') {
-                steps {
-                    sh 'docker-compose down || true'
-                }
+    stages {
+        stage('Clean Previous Containers') {
+            steps {
+                sh 'docker-compose down || true'
             }
+        }
 
         stage('Build Application') {
             steps {
                 sh 'docker-compose build app'
             }
         }
+
         stage('Start Application') {
             steps {
                 sh 'docker-compose up -d app'
-                // Esperar a que la aplicación esté lista usando el nombre del servicio
                 sh '''
                     timeout 120s bash -c '
                         while ! docker-compose exec -T app curl -f http://localhost:5050/login; do
@@ -31,51 +31,56 @@ pipeline {
         stage('Run Cypress Tests') {
             steps {
                 script {
-                sh """
-                    # limpiar reportes previos
-                    rm -rf mochawesome-report || true
-                    mkdir -p mochawesome-report
+                    sh '''
+                        rm -rf mochawesome-report || true
+                        mkdir -p mochawesome-report
 
-                    # ejecutar cypress generando un único HTML autocontenido
-                    docker-compose run --rm cypress npx cypress run \\
-                    --reporter mochawesome \\
-                    --reporter-options "reportDir=mochawesome-report,reportFilename=mochawesome,overwrite=true,html=true,json=false,inlineAssets=true"
-                """
+                        # ejecutar cypress en detached
+                        cypressContainer=$(docker-compose run -d --rm cypress npx cypress run \
+                          --reporter mochawesome \
+                          --reporter-options "reportDir=mochawesome-report,reportFilename=mochawesome,overwrite=true,html=true,json=false,inlineAssets=true")
 
-                // si usas el modo detached + docker cp, adapta; lo importante es que el workspace tenga mochawesome-report/
+                        echo "Cypress container id: $cypressContainer"
+
+                        # esperar a que termine
+                        docker wait $cypressContainer
+
+                        # copiar reporte antes de que el contenedor muera
+                        docker cp $cypressContainer:/e2e/mochawesome-report ./ || true
+
+                        # limpiar contenedor
+                        docker rm -f $cypressContainer >/dev/null 2>&1 || true
+                    '''
                 }
             }
-            }
+        }
 
-            stage('Modify HTML Report') {
-                steps {
-                    script {
-                    // crear banner temporal
+        stage('Modify HTML Report') {
+            steps {
+                script {
                     def banner = """<div style="background-color:#4CAF50;color:white;padding:20px;text-align:center;margin-bottom:20px;">
-                <h2>✅ Tests Ejecutados Exitosamente</h2>
-                <p>Fecha de ejecución: ${new Date().format("yyyy-MM-dd HH:mm:ss")}</p>
-                <p>Build: ${env.BUILD_NUMBER}</p>
-                </div>"""
+                        <h2>✅ Tests Ejecutados Exitosamente</h2>
+                        <p>Fecha de ejecución: ${new Date().format("yyyy-MM-dd HH:mm:ss")}</p>
+                        <p>Build: ${env.BUILD_NUMBER}</p>
+                    </div>"""
                     writeFile file: 'mocha_banner.html', text: banner
 
-                    // elegir el HTML más grande (si quedaron varios) y asegurar nombre fijo
                     sh '''
                         if ls mochawesome-report/mochawesome_*.html > /dev/null 2>&1; then
-                        largest=$(ls -S mochawesome-report/mochawesome_*.html | head -n1)
-                        echo "Seleccionando $largest como mochawesome.html"
-                        cp "$largest" mochawesome-report/mochawesome.html
+                          largest=$(ls -S mochawesome-report/mochawesome_*.html | head -n1)
+                          echo "Seleccionando $largest como mochawesome.html"
+                          cp "$largest" mochawesome-report/mochawesome.html
                         fi
 
-                        # insertar banner sólo en el mochawesome definitivo
                         if [ -f mochawesome-report/mochawesome.html ]; then
-                        sed -i '/<body>/r mocha_banner.html' mochawesome-report/mochawesome.html
+                          sed -i '/<body>/r mocha_banner.html' mochawesome-report/mochawesome.html
                         else
-                        echo "No se encontró mochawesome-report/mochawesome.html"
+                          echo "No se encontró mochawesome-report/mochawesome.html"
                         fi
                     '''
-                    }
                 }
             }
+        }
 
         stage('Cleanup') {
             steps {
