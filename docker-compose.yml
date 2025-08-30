@@ -24,12 +24,14 @@ services:
       - .:/home
     user: root
     networks:
-      - jenkinsnet  # Agregar esta línea
+      - jenkinsnet  
 
   cypress:
     build:
       context: .
       dockerfile: Dockerfile.cypress
+    volumes:
+      - ./mochawesome-report:/e2e/mochawesome-report 
     depends_on:
       - app
     environment:

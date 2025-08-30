@@ -31,62 +31,51 @@ pipeline {
         stage('Run Cypress Tests') {
             steps {
                 script {
-                    // Ejecutar Cypress en modo detached y guardar el container id
-                    def cypressContainer = sh(
-                        script: '''
-                          # Ejecuta Cypress y genera reporte autocontenido (inlineAssets)
-                          docker-compose run -d --rm cypress npx cypress run \
-                            --reporter mochawesome \
-                            --reporter-options "reportDir=mochawesome-report,reportFilename=mochawesome,overwrite=true,html=true,json=false,inlineAssets=true"
-                        ''',
-                        returnStdout: true
-                    ).trim()
-                    
-                    echo "Cypress container id: ${cypressContainer}"
-                    
-                    // Esperar que termine
-                    sh "docker wait ${cypressContainer}"
-                    
-                    // Copiar el reporte del contenedor al workspace
-                    sh """
-                        mkdir -p mochawesome-report
-                        docker cp ${cypressContainer}:/e2e/mochawesome-report/ ./mochawesome-report/ || echo "No se pudo copiar el reporte"
-                        # forzamos eliminación por si --rm no actuó (seguro)
-                        docker rm -f ${cypressContainer} >/dev/null 2>&1 || true
-                    """
+                sh """
+                    # limpiar reportes previos
+                    rm -rf mochawesome-report || true
+                    mkdir -p mochawesome-report
+
+                    # ejecutar cypress generando un único HTML autocontenido
+                    docker-compose run --rm cypress npx cypress run \\
+                    --reporter mochawesome \\
+                    --reporter-options "reportDir=mochawesome-report,reportFilename=mochawesome,overwrite=true,html=true,json=false,inlineAssets=true"
+                """
+
+                // si usas el modo detached + docker cp, adapta; lo importante es que el workspace tenga mochawesome-report/
                 }
             }
-        }
+            }
 
-        // <-- NUEVA ETAPA: modificar/inyectar mensaje en el HTML -->
-        stage('Modify HTML Report') {
-            steps {
-                script {
-                    // banner HTML que queremos insertar (usa variables de entorno)
+            stage('Modify HTML Report') {
+                steps {
+                    script {
+                    // crear banner temporal
                     def banner = """<div style="background-color:#4CAF50;color:white;padding:20px;text-align:center;margin-bottom:20px;">
-  <h2>✅ Tests Ejecutados Exitosamente</h2>
-  <p>Fecha de ejecución: ${new Date().format("yyyy-MM-dd HH:mm:ss")}</p>
-  <p>Build: ${env.BUILD_NUMBER}</p>
-</div>"""
-
-                    // Escribimos el banner a un archivo temporal para evitar problemas con comillas en sed
+                <h2>✅ Tests Ejecutados Exitosamente</h2>
+                <p>Fecha de ejecución: ${new Date().format("yyyy-MM-dd HH:mm:ss")}</p>
+                <p>Build: ${env.BUILD_NUMBER}</p>
+                </div>"""
                     writeFile file: 'mocha_banner.html', text: banner
-                    
-                    // Si hay archivos HTML en el reporte, insertarlos justo después de la etiqueta <body>
+
+                    // elegir el HTML más grande (si quedaron varios) y asegurar nombre fijo
                     sh '''
-                      if ls mochawesome-report/*.html > /dev/null 2>&1; then
-                        for f in mochawesome-report/*.html; do
-                          echo "Modificando reporte: $f"
-                          # inserta el contenido de mocha_banner.html justo después de la línea que contiene <body>
-                          sed -i '/<body>/r mocha_banner.html' "$f"
-                        done
-                      else
-                        echo "No se encontraron archivos HTML en mochawesome-report"
-                      fi
+                        if ls mochawesome-report/mochawesome_*.html > /dev/null 2>&1; then
+                        largest=$(ls -S mochawesome-report/mochawesome_*.html | head -n1)
+                        echo "Seleccionando $largest como mochawesome.html"
+                        cp "$largest" mochawesome-report/mochawesome.html
+                        fi
+
+                        # insertar banner sólo en el mochawesome definitivo
+                        if [ -f mochawesome-report/mochawesome.html ]; then
+                        sed -i '/<body>/r mocha_banner.html' mochawesome-report/mochawesome.html
+                        else
+                        echo "No se encontró mochawesome-report/mochawesome.html"
+                        fi
                     '''
+                    }
                 }
             }
-        }
 
         stage('Cleanup') {
             steps {
